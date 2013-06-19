@@ -1,22 +1,37 @@
 #!/bin/bash
 
 #
-# Bitcoin Brain wallet inspector v0.00000001 by Daniél Riveiro (daniel@riveiro.com).
+# Bitcoin Brain wallet inspector by Daniél Riveiro (daniel@riveiro.com).
+#
+# Requires package: "dc", "the unix desktop calculator".
+# Requires package: "openssl", "Secure Socket Layer (SSL) binary and related cryptographic tools".
 #
 # Credits to https://github.com/grondilu/bitcoin-bash-tools for various functions.
 #
-# Requires "dc", the unix desktop calculator (which should be included in the 'bc' package)
+# Steps I recommend:
+# 1) Disconnect your computer from Internet, WIFI etc (physically) and make sure nobody stand near your display.
+# 2) Imagine a password and generate your wallet using "brainwalletinspect -p areallycomplexpassword".
+# 4) Write down the "Address uncompressed" - it's your Bitcoin address.
+# 5) Destroy your computer or zero-fill your disk a number of times and re-install your OS.
 #
+# Voila! You may now send money to your brain wallet even though your computer never touched Internet. Should be safe from 
+# any kind of digital threat such as keyboard sniffer, virus, trojan etc.
+#
+# Your wallet can't get stolen physically but they get kick yer ass to extract the password from you (so create several).
+# Your wallet may get brute forced in the future but you could renew your password every year or more frequent.
+#
+_APP_VERSION="v0.00000001"
 
-# Default
-_VERBOSE=0
+# Application defaults
+_APP_VERBOSE=0     # 0=off (default) / 1=on
+_APP_TRANSACTION=0 # 0=off (default) / 1=on
 
 #
 # Show app head
 #
 showAppHead()
 {
-    echo "Bitcoin brain wallet inspector v0.00000001"
+    echo "Bitcoin brain wallet inspector ${_APP_VERSION}"
 }
 
 #
@@ -25,11 +40,25 @@ showAppHead()
 showAppHelp()
 {
     showAppHead
-    echo "Usage: brainwalletinspect [-pv]"
+    echo "Usage: brainwalletinspect [-ptv]"
     echo "  --password|-p <arg>  Brain wallet password in clear text"
+    echo "  --transaction|-t     Show transactions to and from Bitcoin address"
     echo "  --verbose|-v         Verbose output"
+    echo "  --version|-v         Verbose output"
+    echo ""
+    echo "You can use this tool to inspect your (or others) brain wallets. Make sure you use an "
+    echo "complex password if you decide to use this."
     echo ""
     echo "Known brain wallets are: sausage, fuckyou"
+}
+
+#
+# Show app version
+#
+showAppVersion()
+{
+    showAppHead
+    exit 0
 }
 
 #
@@ -132,10 +161,10 @@ brainWalletInspect()
     echo "  Public key (Y):                                       ${PUBLIC_KEY_Y}"
 
     WIF_COMPRESSED="$(hexToAddress "${SECRET_EXPONENT}01" 80 66)"
-    echo "  WIF compressed:                                       ${WIF_COMPRESSED}"
+    echo "  Wallet Import Format (WIF) compressed:                ${WIF_COMPRESSED}"
 
     WIF_UNCOMPRESSED="$(hexToAddress "${SECRET_EXPONENT}" 80 64)"
-    echo "  WIF uncompressed:                                     ${WIF_UNCOMPRESSED}"
+    echo "  Wallet Import Format (WIF) uncompressed:              ${WIF_UNCOMPRESSED}"
 
     if [[ "$PUBLIC_KEY_Y" =~ [02468ACE]$ ]]
     then y_parity="02"
@@ -150,28 +179,38 @@ brainWalletInspect()
     #
     # Transactions
     #
-    echo ""
-    echo "Transactions:"
-    BTC_RECEIVED=`GET http://blockexplorer.com/q/getreceivedbyaddress/${ADDRESS_UNCOMPRESSED}`
-    echo "  Recieved (BTC):                                       ${BTC_RECEIVED}"
-    BTC_BALANCE=`GET http://blockexplorer.com/q/addressbalance/${ADDRESS_UNCOMPRESSED}`
-    echo "  Balance (BTC):                                        ${BTC_BALANCE}"
+    if [ "$_APP_TRANSACTION" -eq 1 ]; then
+        echo ""
+        echo "Transactions:"
+        BTC_RECEIVED=`GET http://blockexplorer.com/q/getreceivedbyaddress/${ADDRESS_UNCOMPRESSED}`
+        echo "  Recieved (BTC):                                       ${BTC_RECEIVED}"
+        BTC_BALANCE=`GET http://blockexplorer.com/q/addressbalance/${ADDRESS_UNCOMPRESSED}`
+        echo "  Balance (BTC):                                        ${BTC_BALANCE}"
+    fi
 }
 
 #
 # Parse command-line arguments
 #
-while getopts "h?vp:" opt; do
+while getopts "h?vtp:" opt; do
     case "$opt" in
-    h|\?)
-        showAppHelp
-        exit 0
-        ;;
-    v)
-        _VERBOSE=1
-        ;;
-    p)
-        brainWalletInspect $OPTARG
-        ;;
+        transaction|t)
+            _APP_TRANSACTION=1
+            ;;
+        verbose|v)
+            _APP_VERBOSE=1
+            ;;
+        help|h|\?)
+            showAppHelp
+            exit 0
+            ;;
+        version)
+            showAppVersion
+            exit 0
+            ;;
+        password|p)
+            brainWalletInspect $OPTARG
+            exit 0
+            ;;
     esac
 done
